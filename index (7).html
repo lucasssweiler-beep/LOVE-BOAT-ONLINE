@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<title>La croisière se fait tirer</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,700;0,800;0,900;1,800&family=Nunito+Sans:wght@400;600&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{
+  --bg:#0d0415;--panel:rgba(255,255,255,0.05);--panel2:rgba(255,255,255,0.09);
+  --pink:#ff3fa4;--pink2:#ff6dc5;--violet:#b44fff;--teal:#00f5c8;
+  --hit:#ff3b3b;--miss:#3b8eff;--ship:#22d66a;--defi:#ff8c00;
+  --text:#f0e6ff;--muted:rgba(240,230,255,0.45);
+  --glow-pink:0 0 18px rgba(255,63,164,0.55);
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Nunito Sans',sans-serif;font-size:15px;overflow-x:hidden;}
+.orbs{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;}
+.orbs span{position:absolute;border-radius:50%;filter:blur(80px);opacity:.28;}
+.orbs .o1{width:380px;height:380px;background:var(--violet);top:-100px;left:-80px;}
+.orbs .o2{width:320px;height:320px;background:var(--pink);bottom:-80px;right:-60px;}
+.orbs .o3{width:200px;height:200px;background:var(--teal);top:40%;left:50%;transform:translate(-50%,-50%);}
+#app{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;}
+
+/* ── LOBBY ── */
+#lobby{position:fixed;inset:0;z-index:400;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:32px 24px;text-align:center;overflow-y:auto;}
+#lobby.hidden{display:none;}
+.lobby-title{font-family:'Nunito',sans-serif;font-weight:900;font-size:30px;line-height:1.15;background:linear-gradient(135deg,var(--pink),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px;}
+.lobby-title em{font-style:italic;}
+.lobby-sub{font-size:12px;color:var(--muted);margin-bottom:24px;}
+.lobby-box{background:var(--panel2);border:1.5px solid rgba(255,255,255,0.1);border-radius:20px;padding:20px;width:100%;max-width:360px;margin-bottom:14px;}
+.lobby-box-title{font-family:'Nunito',sans-serif;font-weight:900;font-size:13px;color:var(--pink2);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;justify-content:center;gap:6px;}
+.lobby-input{width:100%;background:rgba(255,255,255,0.06);border:1.5px solid rgba(255,255,255,0.12);border-radius:12px;padding:11px 14px;color:var(--text);font-size:15px;font-family:'Nunito Sans',sans-serif;outline:none;margin-bottom:10px;}
+.lobby-input:focus{border-color:var(--pink);}
+.lobby-input::placeholder{color:var(--muted);}
+.btn-primary{width:100%;padding:13px;border-radius:30px;border:none;cursor:pointer;background:linear-gradient(135deg,var(--pink),var(--violet));color:#fff;font-family:'Nunito',sans-serif;font-weight:900;font-size:15px;box-shadow:var(--glow-pink);margin-bottom:8px;}
+.btn-primary:active{transform:scale(.97);}
+.lobby-sep{display:flex;align-items:center;gap:10px;margin:12px 0;color:var(--muted);font-size:12px;width:100%;max-width:360px;}
+.lobby-sep::before,.lobby-sep::after{content:'';flex:1;height:1px;background:rgba(255,255,255,0.1);}
+
+/* défi count selector */
+.defi-count-label{font-size:11px;color:var(--muted);margin-bottom:8px;text-align:left;}
+.defi-count-row{display:flex;gap:6px;margin-bottom:12px;}
+.dc-btn{flex:1;padding:10px 4px;border-radius:12px;border:1.5px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:var(--muted);font-family:'Nunito',sans-serif;font-weight:900;font-size:14px;cursor:pointer;transition:all .2s;position:relative;}
+.dc-btn.active{border-color:var(--pink);color:var(--pink);background:rgba(255,63,164,0.12);box-shadow:0 0 8px rgba(255,63,164,0.25);}
+.dc-btn.hot{border-color:rgba(255,140,0,0.4);color:var(--defi);}
+.dc-btn.hot.active{border-color:var(--defi);background:rgba(255,140,0,0.15);box-shadow:0 0 8px rgba(255,140,0,0.3);}
+.dc-btn.locked{opacity:.65;}
+.dc-btn .lock-ico{font-size:10px;display:block;margin-top:2px;}
+.dc-btn .hot-badge{position:absolute;top:-7px;right:-4px;background:var(--defi);color:#000;font-size:8px;font-weight:900;padding:1px 5px;border-radius:8px;}
+
+.share-box{background:rgba(0,245,200,0.07);border:1.5px solid rgba(0,245,200,0.28);border-radius:14px;padding:14px;width:100%;max-width:360px;}
+.share-label{font-size:11px;color:var(--teal);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
+.share-code{font-family:'Nunito',sans-serif;font-weight:900;font-size:24px;color:var(--teal);letter-spacing:5px;margin-bottom:8px;}
+.share-hint{font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.5;}
+.btn-copy{padding:10px 20px;border-radius:20px;border:1.5px solid var(--teal);background:rgba(0,245,200,0.1);color:var(--teal);font-family:'Nunito',sans-serif;font-weight:800;font-size:13px;cursor:pointer;}
+.lobby-player-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;border:1.5px solid rgba(255,63,164,0.4);background:rgba(255,63,164,0.1);font-family:'Nunito',sans-serif;font-weight:800;font-size:13px;color:var(--pink2);margin-bottom:18px;}
+
+/* ── HEADER ── */
+header{position:sticky;top:0;z-index:50;background:rgba(13,4,21,0.82);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,63,164,0.18);padding:10px 14px 0;}
+.header-top{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.logo{font-family:'Nunito',sans-serif;font-weight:900;font-size:13px;line-height:1.2;background:linear-gradient(135deg,var(--pink),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.logo em{font-style:italic;}
+.hdr-info{margin-left:auto;text-align:right;}
+.hdr-player{font-family:'Nunito',sans-serif;font-weight:800;font-size:10px;color:var(--pink2);}
+.hdr-conn{font-size:9px;font-weight:800;font-family:'Nunito',sans-serif;}
+.hdr-conn.online{color:var(--ship);}
+.hdr-conn.waiting{color:var(--defi);}
+.hdr-conn.offline{color:var(--muted);}
+
+/* WAITING OVERLAY */
+#waiting{display:none;position:fixed;inset:0;z-index:380;background:rgba(8,2,16,0.95);backdrop-filter:blur(12px);flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;}
+#waiting.open{display:flex;}
+.wait-spinner{width:48px;height:48px;border:4px solid rgba(255,63,164,0.2);border-top-color:var(--pink);border-radius:50%;animation:spin 1s linear infinite;margin-bottom:18px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.wait-title{font-family:'Nunito',sans-serif;font-weight:900;font-size:20px;color:var(--pink2);margin-bottom:6px;}
+.wait-code{font-family:'Nunito',sans-serif;font-weight:900;font-size:28px;color:var(--teal);letter-spacing:6px;margin:12px 0;}
+.wait-sub{font-size:12px;color:var(--muted);margin-bottom:18px;line-height:1.5;}
+.wait-copy{padding:11px 22px;border-radius:25px;border:1.5px solid var(--teal);background:rgba(0,245,200,0.1);color:var(--teal);font-family:'Nunito',sans-serif;font-weight:800;font-size:13px;cursor:pointer;}
+
+
+/* TURN INDICATOR */
+.turn-bar{display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:7px 12px;border-radius:12px;background:var(--panel);border:1.5px solid rgba(255,255,255,0.1);cursor:pointer;transition:all .25s;}
+.turn-bar.my-turn{border-color:var(--ship);background:rgba(34,214,106,0.12);box-shadow:0 0 10px rgba(34,214,106,0.2);}
+.turn-bar.their-turn{border-color:var(--miss);background:rgba(59,142,255,0.1);}
+.turn-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.turn-bar.my-turn .turn-dot{background:var(--ship);box-shadow:0 0 8px var(--ship);animation:tpulse 1s infinite alternate;}
+.turn-bar.their-turn .turn-dot{background:var(--miss);}
+@keyframes tpulse{from{opacity:.5;}to{opacity:1;}}
+.turn-text{font-family:'Nunito',sans-serif;font-weight:900;font-size:13px;}
+.turn-bar.my-turn .turn-text{color:var(--ship);}
+.turn-bar.their-turn .turn-text{color:var(--miss);}
+.turn-hint{margin-left:auto;font-size:10px;color:var(--muted);}
+
+nav{display:flex;}
+nav button{flex:1;background:none;border:none;color:var(--muted);font-family:'Nunito',sans-serif;font-weight:800;font-size:12px;padding:9px 4px;cursor:pointer;position:relative;transition:color .2s;}
+nav button::after{content:'';position:absolute;bottom:0;left:15%;right:15%;height:2.5px;border-radius:2px;background:var(--pink);transform:scaleX(0);transition:transform .25s;}
+nav button.active{color:var(--text);}
+nav button.active::after{transform:scaleX(1);}
+
+/* ── TABS ── */
+.tab{display:none;padding:14px 12px 90px;animation:fadeIn .2s ease;}
+.tab.active{display:block;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.s-title{font-family:'Nunito',sans-serif;font-weight:900;font-size:12px;color:var(--pink2);letter-spacing:.5px;margin-bottom:8px;text-transform:uppercase;display:flex;align-items:center;gap:6px;}
+
+/* HELP BUTTON */
+.help-btn{width:17px;height:17px;border-radius:50%;border:1.5px solid var(--pink2);background:rgba(255,63,164,0.1);color:var(--pink2);font-size:10px;font-weight:900;font-family:'Nunito',sans-serif;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}
+.help-btn:active{background:rgba(255,63,164,0.3);}
+
+/* ── SHIPS ── */
+.ships-legend{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;}
+.ship-chip{display:flex;align-items:center;gap:5px;padding:5px 9px;border-radius:30px;border:1.5px solid rgba(255,255,255,0.12);background:var(--panel);font-family:'Nunito',sans-serif;font-weight:800;font-size:11px;color:var(--muted);cursor:pointer;transition:all .2s;user-select:none;}
+.ship-chip.selected{border-color:var(--ship);color:var(--ship);background:rgba(34,214,106,0.12);box-shadow:0 0 8px rgba(34,214,106,0.2);}
+.ship-chip.done{border-color:rgba(34,214,106,0.22);color:rgba(34,214,106,0.38);cursor:default;}
+.ship-chip .pip{width:7px;height:7px;border-radius:2px;background:currentColor;flex-shrink:0;}
+.ship-chip.gpoint-chip{border-color:var(--pink)!important;color:var(--pink)!important;background:rgba(255,63,164,0.12)!important;}
+.ship-chip.gpoint-chip.selected{box-shadow:var(--glow-pink)!important;}
+
+/* DIRECTION */
+.dir-row{display:flex;gap:8px;margin-bottom:10px;align-items:center;}
+.dir-label{font-size:11px;color:var(--muted);font-weight:600;}
+.dir-btn{padding:7px 14px;border-radius:20px;border:1.5px solid rgba(255,255,255,0.12);background:var(--panel);color:var(--muted);font-family:'Nunito',sans-serif;font-weight:800;font-size:11px;cursor:pointer;transition:all .2s;}
+.dir-btn.active{border-color:var(--ship);color:var(--ship);background:rgba(34,214,106,0.1);}
+
+.place-hint{font-size:11px;color:var(--muted);margin-bottom:10px;padding:8px 10px;background:var(--panel);border-radius:10px;line-height:1.5;}
+.place-hint strong{color:var(--ship);}
+
+.mode-row{display:flex;gap:8px;margin-bottom:10px;}
+.mode-btn{flex:1;padding:8px 6px;border-radius:10px;border:1.5px solid rgba(255,255,255,0.1);background:var(--panel);color:var(--muted);font-family:'Nunito',sans-serif;font-weight:800;font-size:11px;cursor:pointer;transition:all .2s;}
+.mode-btn.active-place{border-color:var(--ship);color:var(--ship);background:rgba(34,214,106,0.1);}
+.mode-btn.active-defi{border-color:var(--defi);color:var(--defi);background:rgba(255,140,0,0.1);}
+
+/* GRIDS */
+.grid-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:10px;}
+.grid-container{display:inline-grid;grid-template-columns:20px repeat(10,1fr);grid-template-rows:20px repeat(10,1fr);gap:2px;min-width:268px;width:100%;}
+.grid-label{display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--muted);font-family:'Nunito',sans-serif;}
+.grid-cell{aspect-ratio:1;border-radius:4px;background:var(--panel2);border:1px solid rgba(255,255,255,0.07);cursor:pointer;transition:background .1s;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;font-family:'Nunito',sans-serif;}
+.grid-cell:active{transform:scale(.88);}
+.grid-cell.ship-cell{background:rgba(34,214,106,0.28);border-color:rgba(34,214,106,0.5);}
+.grid-cell.defi-cell{background:rgba(255,140,0,0.3);border-color:rgba(255,140,0,0.6);box-shadow:0 0 5px rgba(255,140,0,0.2);}
+.grid-cell.gpoint-cell{background:linear-gradient(135deg,rgba(255,63,164,0.5),rgba(180,79,255,0.5));border-color:var(--pink);animation:gpulse 1.2s infinite alternate;}
+@keyframes gpulse{from{box-shadow:0 0 6px rgba(255,63,164,0.4);}to{box-shadow:0 0 16px rgba(255,63,164,0.8);}}
+.grid-cell.preview-ok{background:rgba(34,214,106,0.15);border-color:rgba(34,214,106,0.4);}
+.grid-cell.preview-bad{background:rgba(255,59,59,0.2);border-color:rgba(255,59,59,0.4);}
+.grid-cell.hit-cell{background:rgba(255,59,59,0.33);border-color:rgba(255,59,59,0.6);color:var(--hit);}
+.grid-cell.miss-cell{background:rgba(59,142,255,0.18);border-color:rgba(59,142,255,0.35);color:var(--miss);}
+.defi-num{position:absolute;top:1px;right:2px;font-size:7px;color:rgba(255,140,0,0.9);font-weight:900;}
+
+/* SCORE */
+.score-bar{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;}
+.score-card{background:var(--panel);border-radius:12px;padding:10px 6px;text-align:center;border:1px solid rgba(255,255,255,0.07);}
+.score-card .num{font-family:'Nunito',sans-serif;font-weight:900;font-size:24px;line-height:1;}
+.score-card .lbl{font-size:9px;color:var(--muted);margin-top:3px;font-weight:600;}
+.score-card.hit-c .num{color:var(--hit);}
+.score-card.miss-c .num{color:var(--miss);}
+.score-card.rem-c .num{color:var(--teal);}
+
+/* PROGRESS */
+.progress-wrap{margin-bottom:12px;}
+.progress-label{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-bottom:4px;}
+.progress-label span:last-child{color:var(--teal);font-weight:700;}
+.progress-track{height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;}
+.progress-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--pink),var(--violet));transition:width .35s ease;}
+
+/* BONUS PANEL */
+.bonus-panel{background:var(--panel);border:1.5px solid rgba(255,255,255,0.1);border-radius:12px;padding:10px 12px;margin-bottom:12px;}
+.bonus-panel-title{font-size:11px;color:var(--pink2);font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.bonus-list{display:flex;flex-direction:column;gap:6px;}
+.bonus-item{display:flex;align-items:center;gap:8px;font-size:12px;padding:6px 8px;border-radius:8px;background:rgba(255,255,255,0.03);}
+.bonus-item.active{background:rgba(255,63,164,0.12);border:1px solid rgba(255,63,164,0.3);}
+.bonus-item .bico{font-size:16px;}
+.bonus-item .btxt{flex:1;}
+.bonus-item .bstate{font-size:10px;font-weight:800;}
+.bonus-item.active .bstate{color:var(--pink);}
+.bonus-item:not(.active) .bstate{color:var(--muted);}
+.bonus-empty{font-size:11px;color:var(--muted);font-style:italic;text-align:center;padding:4px;}
+
+.tir-hint{font-size:11px;color:var(--muted);margin-bottom:10px;padding:8px 10px;background:var(--panel);border-radius:10px;line-height:1.5;}
+.tir-hint strong{color:var(--defi);}
+
+.btn-clear{display:block;width:100%;padding:10px;border-radius:10px;margin-top:6px;border:1.5px solid rgba(255,63,164,0.25);background:rgba(255,63,164,0.07);color:var(--pink2);font-family:'Nunito',sans-serif;font-weight:800;font-size:13px;cursor:pointer;}
+
+/* DEFIS TAB */
+.defi-rule-banner{background:rgba(0,245,200,0.07);border:1.5px solid rgba(0,245,200,0.25);border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:rgba(0,245,200,0.85);line-height:1.5;}
+.defi-suggestions{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
+.defi-sug-chip{padding:6px 11px;border-radius:20px;border:1.5px solid rgba(255,140,0,0.3);background:rgba(255,140,0,0.08);color:rgba(255,140,0,0.9);font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;}
+.defi-sug-chip:active{background:rgba(255,140,0,0.2);}
+.defi-sug-chip.hot-locked{opacity:.4;border-style:dashed;}
+.defi-inputs{display:flex;flex-direction:column;gap:10px;margin-bottom:16px;}
+.defi-input-row{display:flex;align-items:center;gap:8px;}
+.defi-badge{width:26px;height:26px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:'Nunito',sans-serif;font-weight:900;font-size:12px;background:rgba(255,140,0,0.15);color:var(--defi);border:1.5px solid rgba(255,140,0,0.32);}
+.defi-input-row input{flex:1;background:var(--panel2);border:1.5px solid rgba(255,255,255,0.1);border-radius:10px;padding:9px 12px;color:var(--text);font-size:13px;font-family:'Nunito Sans',sans-serif;outline:none;}
+.defi-input-row input:focus{border-color:var(--defi);}
+.defi-input-row input::placeholder{color:var(--muted);}
+.defi-status-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:var(--panel);margin-bottom:6px;font-size:12px;}
+.defi-status-item .coord{font-family:'Nunito',sans-serif;font-weight:900;color:var(--pink);font-size:12px;min-width:30px;}
+.defi-status-item .desc{color:var(--muted);font-style:italic;}
+.defi-status-item.placed .desc{color:var(--text);}
+
+/* MODAL générique */
+.modal-overlay{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.78);backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:20px;}
+.modal-overlay.open{display:flex;}
+.modal-box{background:linear-gradient(160deg,#1a0630,#0d0415);border:1.5px solid var(--pink);border-radius:20px;padding:26px 20px;max-width:340px;width:100%;text-align:center;box-shadow:var(--glow-pink),0 30px 60px rgba(0,0,0,0.5);}
+.modal-icon{font-size:40px;margin-bottom:8px;}
+.modal-title{font-family:'Nunito',sans-serif;font-weight:900;font-size:17px;color:var(--pink);margin-bottom:4px;}
+.modal-who{font-size:12px;color:var(--teal);margin-bottom:5px;font-weight:700;}
+.modal-coord{font-size:11px;color:var(--muted);margin-bottom:12px;}
+.modal-text{font-family:'Nunito',sans-serif;font-weight:800;font-size:20px;color:var(--text);line-height:1.3;margin-bottom:20px;padding:13px;background:rgba(255,255,255,0.05);border-radius:12px;}
+.modal-close{padding:12px 28px;border-radius:30px;border:none;cursor:pointer;background:linear-gradient(135deg,var(--pink),var(--violet));color:#fff;font-family:'Nunito',sans-serif;font-weight:900;font-size:15px;box-shadow:var(--glow-pink);}
+
+/* HELP MODAL */
+#help-modal .modal-box{text-align:left;border-color:var(--pink2);}
+.help-modal-title{font-family:'Nunito',sans-serif;font-weight:900;font-size:18px;color:var(--pink2);margin-bottom:12px;text-align:center;}
+.help-modal-body{font-size:13px;line-height:1.6;color:var(--text);margin-bottom:18px;}
+.help-modal-body strong{color:var(--pink);}
+
+/* AD MODAL */
+#ad-modal .modal-box{border-color:var(--defi);}
+.ad-fake{background:#000;border-radius:12px;height:160px;display:flex;flex-direction:column;align-items:center;justify-content:center;margin-bottom:14px;position:relative;overflow:hidden;}
+.ad-fake-label{position:absolute;top:8px;left:8px;font-size:9px;background:rgba(255,255,255,0.2);padding:2px 6px;border-radius:4px;color:#fff;}
+.ad-fake-content{font-family:'Nunito',sans-serif;font-weight:900;font-size:22px;color:#fff;text-align:center;padding:0 16px;}
+.ad-countdown{font-size:13px;color:var(--defi);font-weight:800;margin-bottom:14px;}
+.ad-progress{display:flex;gap:6px;justify-content:center;margin-bottom:14px;}
+.ad-dot{width:30px;height:5px;border-radius:3px;background:rgba(255,255,255,0.15);}
+.ad-dot.done{background:var(--defi);}
+
+/* VICTORY */
+#victory{display:none;position:fixed;inset:0;z-index:300;background:rgba(8,2,16,0.94);backdrop-filter:blur(14px);flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;overflow-y:auto;}
+#victory.open{display:flex;}
+.v-emoji{font-size:52px;margin-bottom:6px;}
+.v-title{font-family:'Nunito',sans-serif;font-weight:900;font-size:32px;line-height:1.1;background:linear-gradient(135deg,var(--pink),var(--violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:3px;}
+.v-sub{font-size:12px;color:var(--muted);margin-bottom:20px;}
+.v-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%;max-width:300px;margin-bottom:18px;}
+.v-stat{background:var(--panel);border-radius:12px;padding:11px 6px;border:1px solid rgba(255,255,255,0.07);}
+.v-stat .n{font-family:'Nunito',sans-serif;font-weight:900;font-size:24px;line-height:1;}
+.v-stat .l{font-size:9px;color:var(--muted);margin-top:3px;}
+.v-stat.s-hit .n{color:var(--hit);}
+.v-stat.s-miss .n{color:var(--miss);}
+.v-stat.s-defi .n{color:var(--defi);}
+.v-defis{width:100%;max-width:300px;margin-bottom:22px;}
+.v-defis-label{font-size:10px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;font-weight:700;letter-spacing:.5px;}
+.v-defi-item{background:rgba(255,140,0,0.1);border:1.5px solid rgba(255,140,0,0.28);border-radius:10px;padding:7px 12px;margin-bottom:5px;font-size:12px;font-weight:600;color:var(--text);text-align:left;}
+.v-replay{padding:13px 38px;border-radius:30px;border:none;cursor:pointer;background:linear-gradient(135deg,var(--pink),var(--violet));color:#fff;font-family:'Nunito',sans-serif;font-weight:900;font-size:15px;box-shadow:var(--glow-pink);}
+
+#mitraillette-banner{display:none;position:fixed;top:108px;left:50%;transform:translateX(-50%);z-index:100;background:linear-gradient(135deg,var(--pink),var(--violet));color:#fff;font-family:'Nunito',sans-serif;font-weight:900;font-size:14px;padding:9px 18px;border-radius:30px;box-shadow:var(--glow-pink);text-align:center;white-space:nowrap;}
+#mitraillette-banner.show{display:block;animation:slidein .3s ease;}
+@keyframes slidein{from{opacity:0;transform:translateX(-50%) translateY(-10px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
+
+#confetti-canvas{position:fixed;inset:0;pointer-events:none;z-index:299;}
+@keyframes ripple{0%{transform:scale(0);opacity:.7}100%{transform:scale(3.5);opacity:0}}
+.ripple-el{position:absolute;width:36px;height:36px;border-radius:50%;margin-left:-18px;margin-top:-18px;pointer-events:none;animation:ripple .4s ease-out forwards;}
+</style>
+</head>
+<body>
+<div class="orbs"><span class="o1"></span><span class="o2"></span><span class="o3"></span></div>
+
+<!-- ══ LOBBY ══ -->
+<div id="lobby">
+  <div class="lobby-title">La croisière…<br/><em>se fait tirer…</em></div>
+  <div class="lobby-sub">Jeu à 2 · Annoncez vos tirs à voix haute 🔞</div>
+  <div id="lobby-create-section" style="width:100%;max-width:360px;">
+    <div class="lobby-box">
+      <div class="lobby-box-title">🚀 Créer une partie</div>
+      <input class="lobby-input" id="inp-name-create" placeholder="Ton prénom…" maxlength="16"/>
+      <div class="defi-count-label">Nombre de défis pour cette partie :</div>
+      <div class="defi-count-row" id="defi-count-row">
+        <div class="dc-btn active" data-count="3">3</div>
+        <div class="dc-btn" data-count="5">5</div>
+        <div class="dc-btn" data-count="7">7</div>
+        <div class="dc-btn hot locked" data-count="10">10<span class="hot-badge">HOT</span><span class="lock-ico">🔒</span></div>
+      </div>
+      <button class="btn-primary" id="btn-create">Créer la partie</button>
+    </div>
+    <div class="lobby-sep">ou</div>
+    <div class="lobby-box">
+      <div class="lobby-box-title">🔗 Rejoindre</div>
+      <input class="lobby-input" id="inp-code-join" placeholder="Code de partie (option)…" maxlength="6" style="text-transform:uppercase;letter-spacing:3px;"/>
+      <input class="lobby-input" id="inp-name-join" placeholder="Ton prénom…" maxlength="16"/>
+      <button class="btn-primary" id="btn-join">Rejoindre</button>
+    </div>
+  </div>
+  <div id="lobby-share-section" style="display:none;width:100%;max-width:360px;">
+    <div class="lobby-player-badge" id="lobby-player-badge">👤 Joueur 1</div>
+    <div class="share-box">
+      <div class="share-label">Code de ta partie</div>
+      <div class="share-code" id="share-code-display"></div>
+      <div class="share-hint">Partage ce lien à ton/ta partenaire.<br/>Il/elle ouvre le lien et tape son prénom !</div>
+      <button class="btn-copy" id="btn-copy-code">📋 Copier le lien</button>
+    </div>
+    <div style="margin-top:14px;"><button class="btn-primary" id="btn-start-game">✅ Commencer à jouer</button></div>
+  </div>
+</div>
+
+
+<!-- Waiting for opponent -->
+<div id="waiting">
+  <div class="wait-spinner"></div>
+  <div class="wait-title">En attente du joueur 2…</div>
+  <div class="wait-sub">Partage ce code (ou le lien) à ton/ta partenaire</div>
+  <div class="wait-code" id="wait-code">------</div>
+  <button class="wait-copy" id="wait-copy">📋 Copier le lien</button>
+  <div class="wait-sub" style="margin-top:18px;">L'écran se débloque dès qu'il/elle rejoint ✨</div>
+</div>
+
+<!-- ══ GAME ══ -->
+<div id="app">
+  <header>
+    <div class="header-top">
+      <div class="logo">La croisière… <em>se fait tirer…</em></div>
+      <div class="hdr-info"><div class="hdr-player" id="hdr-player">Joueur</div><div class="hdr-conn" id="hdr-conn">⚪ Hors-ligne</div></div>
+    </div>
+    <div class="turn-bar my-turn" id="turn-bar">
+      <div class="turn-dot"></div>
+      <div class="turn-text" id="turn-text">À toi de jouer !</div>
+      <div class="turn-hint">tap = changer</div>
+    </div>
+    <nav id="nav">
+      <button data-tab="tab-flotte" class="active">🚢 Ma flotte</button>
+      <button data-tab="tab-tirs">🎯 Mes tirs</button>
+      <button data-tab="tab-defis">🎲 Mes défis</button>
+    </nav>
+  </header>
+
+  <!-- FLOTTE -->
+  <div id="tab-flotte" class="tab active">
+    <div class="s-title">Place ta flotte <span class="help-btn" data-help="flotte">?</span></div>
+    <div class="ships-legend" id="ships-legend"></div>
+    <div class="dir-row">
+      <span class="dir-label">Direction :</span>
+      <button class="dir-btn active" id="dir-h">➡ Horizontal</button>
+      <button class="dir-btn" id="dir-v">⬇ Vertical</button>
+    </div>
+    <div class="place-hint" id="place-hint">Sélectionne un bateau, puis touche la <strong>1ère case</strong> pour le placer.</div>
+    <div class="mode-row">
+      <button class="mode-btn active-place" id="mode-place">🚢 Placer</button>
+      <button class="mode-btn" id="mode-defi">🎲 Marquer défis</button>
+    </div>
+    <div class="grid-wrap"><div class="grid-container" id="grid-flotte"></div></div>
+    <button class="btn-clear" id="btn-clear-flotte">🗑 Effacer la flotte</button>
+  </div>
+
+  <!-- TIRS -->
+  <div id="tab-tirs" class="tab">
+    <div class="s-title">Note tes tirs <span class="help-btn" data-help="tirs">?</span></div>
+    <div class="score-bar">
+      <div class="score-card hit-c"><div class="num" id="sc-hit">0</div><div class="lbl">💥 Touchés</div></div>
+      <div class="score-card miss-c"><div class="num" id="sc-miss">0</div><div class="lbl">💧 Manqués</div></div>
+      <div class="score-card rem-c"><div class="num" id="sc-rem">18</div><div class="lbl">🎯 Restants</div></div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-label"><span>Progression vers la victoire</span><span id="prog-label">0 / 18</span></div>
+      <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+    </div>
+    <div class="bonus-panel">
+      <div class="bonus-panel-title">⚡ Bonus débloqués <span class="help-btn" data-help="bonus">?</span></div>
+      <div class="bonus-list" id="bonus-list"></div>
+    </div>
+    <div class="grid-wrap"><div class="grid-container" id="grid-tirs"></div></div>
+    <button class="btn-clear" id="btn-defi-btn" style="margin-bottom:6px;border-color:rgba(255,140,0,0.4);background:rgba(255,140,0,0.08);color:var(--defi);">🎲 L'adversaire crie « Défi ! »</button>
+    <button class="btn-clear" id="btn-gpoint" style="margin-bottom:6px;border-color:rgba(255,63,164,0.5);background:rgba(255,63,164,0.1);color:var(--pink2);">🔥 G-POINT touché ! (Mitraillette 🔫)</button>
+    <button class="btn-clear" id="btn-clear-tirs">🗑 Effacer les tirs</button>
+  </div>
+
+  <!-- DEFIS -->
+  <div id="tab-defis" class="tab">
+    <div class="s-title">Tes défis <span class="help-btn" data-help="defis">?</span></div>
+    <div class="defi-rule-banner">🎲 <strong>Règle :</strong> Quand l'adversaire touche une de tes cases défi, <em>c'est lui qui gagne le bonus</em> ! Il doit relever ton défi.</div>
+    <div class="s-title">Nombre de défis</div>
+    <div class="defi-count-row" id="game-defi-count" style="margin-bottom:14px;">
+      <div class="dc-btn active" data-count="3">3</div>
+      <div class="dc-btn" data-count="5">5</div>
+      <div class="dc-btn" data-count="7">7</div>
+      <div class="dc-btn hot locked" data-count="10">10<span class="hot-badge">HOT</span><span class="lock-ico">🔒</span></div>
+    </div>
+    <div class="s-title">💡 Suggestions (tap pour ajouter)</div>
+    <div class="defi-suggestions" id="defi-suggestions"></div>
+    <div class="s-title" id="defi-perso-title">Tes défis personnalisés</div>
+    <div class="defi-inputs" id="defi-inputs"></div>
+    <div class="s-title">Défis placés sur ta flotte</div>
+    <div id="defi-status"></div>
+  </div>
+</div>
+
+<!-- Défi modal -->
+<div id="defi-modal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-icon">🎲</div>
+    <div class="modal-title">Défi déclenché !</div>
+    <div class="modal-who" id="dm-who"></div>
+    <div class="modal-coord" id="dm-coord"></div>
+    <div class="modal-text" id="dm-text"></div>
+    <button class="modal-close" id="dm-close">✔ Relevé !</button>
+  </div>
+</div>
+
+<!-- Help modal -->
+<div id="help-modal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="help-modal-title" id="help-title">Aide</div>
+    <div class="help-modal-body" id="help-body"></div>
+    <button class="modal-close" id="help-close">Compris !</button>
+  </div>
+</div>
+
+<!-- Ad modal -->
+<div id="ad-modal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-icon">🔥</div>
+    <div class="modal-title">Débloquer le mode HOT</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">Regarde 2 courtes pubs pour débloquer les 10 défis coquins 😈</div>
+    <div class="ad-fake">
+      <div class="ad-fake-label">PUBLICITÉ</div>
+      <div class="ad-fake-content" id="ad-content">Pub 1/2</div>
+    </div>
+    <div class="ad-progress"><div class="ad-dot" id="ad-dot-1"></div><div class="ad-dot" id="ad-dot-2"></div></div>
+    <div class="ad-countdown" id="ad-countdown">30s…</div>
+    <button class="modal-close" id="ad-skip" style="background:rgba(255,255,255,0.1);box-shadow:none;font-size:12px;padding:8px 18px;">Annuler</button>
+  </div>
+</div>
+
+<div id="mitraillette-banner">🔫 MITRAILLETTE ! <span id="mit-count">3</span> tirs restants</div>
+
+<canvas id="confetti-canvas"></canvas>
+<div id="victory">
+  <div class="v-emoji">🏆</div>
+  <div class="v-title">Victoire !</div>
+  <div class="v-sub" id="v-sub">Toute la flotte est coulée !</div>
+  <div class="v-stats">
+    <div class="v-stat s-hit"><div class="n" id="v-hit">0</div><div class="l">💥 Touchés</div></div>
+    <div class="v-stat s-miss"><div class="n" id="v-miss">0</div><div class="l">💧 Manqués</div></div>
+    <div class="v-stat s-defi"><div class="n" id="v-defi">0</div><div class="l">🎲 Défis</div></div>
+  </div>
+  <div class="v-defis" id="v-defis"></div>
+  <button class="v-replay" id="v-replay">🔄 Rejouer</button>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ═══════════════ FIREBASE — SYNCHRO TEMPS RÉEL ═══════════════ */
+var firebaseConfig={
+  apiKey:"AIzaSyBjeOVKFAkFJXyRTXppJA8En9GninFGlj4",
+  authDomain:"loveboat-18669.firebaseapp.com",
+  databaseURL:"https://loveboat-18669-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:"loveboat-18669",
+  storageBucket:"loveboat-18669.firebasestorage.app",
+  messagingSenderId:"1015056486938",
+  appId:"1:1015056486938:web:948d772f7082fe7f3c77a3"
+};
+var fbReady=false, db=null, gameRef=null, myRole=null, oppListener=null;
+try{
+  firebase.initializeApp(firebaseConfig);
+  db=firebase.database();
+  fbReady=true;
+}catch(e){console.warn('Firebase init failed',e);}
+
+// Crée une partie en ligne : J1 écrit son entrée, attend J2
+function fbCreateGame(code,name,cb){
+  if(!fbReady){cb(false);return;}
+  gameRef=db.ref('parties/'+code);
+  myRole='p1';
+  gameRef.child('p1').set({name:name,ready:true,ts:Date.now()});
+  gameRef.child('p1').onDisconnect().update({online:false});
+  gameRef.child('p1/online').set(true);
+  // Écoute l'arrivée de J2
+  gameRef.child('p2').on('value',function(snap){
+    var v=snap.val();
+    if(v&&v.name){onOpponentJoined(v.name);}
+  });
+  setConn('waiting');
+  cb(true);
+}
+
+// Rejoint une partie : J2 écrit son entrée
+function fbJoinGame(code,name,cb){
+  if(!fbReady){cb(false,'offline');return;}
+  gameRef=db.ref('parties/'+code);
+  myRole='p2';
+  gameRef.child('p1').once('value',function(snap){
+    if(!snap.val()){cb(false,'notfound');return;}
+    gameRef.child('p2').set({name:name,ready:true,ts:Date.now()});
+    gameRef.child('p2/online').set(true);
+    gameRef.child('p2').onDisconnect().update({online:false});
+    var oppName=snap.val().name;
+    onOpponentJoined(oppName);
+    cb(true);
+  });
+}
+
+function onOpponentJoined(oppName){
+  SESSION.oppName=oppName;
+  document.getElementById('waiting').classList.remove('open');
+  setConn('online');
+  listenOpponentShots();
+  // toast
+  showToast('🎉 '+oppName+' a rejoint la partie !');
+}
+
+// Écoute les tirs de l'adversaire (= ce qu'on subit sur NOTRE flotte)
+function listenOpponentShots(){
+  if(!gameRef)return;
+  var oppKey=myRole==='p1'?'p2':'p1';
+  if(oppListener)gameRef.child(oppKey+'/shots').off();
+  oppListener=gameRef.child(oppKey+'/shots').on('child_added',function(snap){
+    var shot=snap.val();
+    if(shot&&shot.cell){registerIncomingShot(shot.cell);}
+  });
+  // écoute aussi le tour
+  gameRef.child('turn').on('value',function(snap){
+    var t=snap.val();
+    if(t){S.myTurn=(t===myRole);renderTurn();}
+  });
+}
+
+// Envoie un tir à Firebase
+function fbSendShot(cell,result){
+  if(!fbReady||!gameRef)return;
+  gameRef.child(myRole+'/shots').push({cell:cell,result:result,ts:Date.now()});
+}
+// Passe le tour à l'adversaire
+function fbPassTurn(){
+  if(!fbReady||!gameRef)return;
+  var oppKey=myRole==='p1'?'p2':'p1';
+  gameRef.child('turn').set(oppKey);
+}
+
+function setConn(state){
+  var el=document.getElementById('hdr-conn');if(!el)return;
+  if(state==='online'){el.className='hdr-conn online';el.textContent='🟢 Connecté';}
+  else if(state==='waiting'){el.className='hdr-conn waiting';el.textContent='🟠 En attente';}
+  else{el.className='hdr-conn offline';el.textContent='⚪ Hors-ligne';}
+}
+
+// Tir reçu de l'adversaire sur notre flotte → notif
+function registerIncomingShot(cell){
+  var hitType='manqué 💧';
+  if(S.flotteMap[cell]==='gpoint'){hitType='G-POINT 🔥 ! (mitraillette adverse)';}
+  else if(S.flotteMap[cell]==='defi'){hitType='DÉFI 🎲 ! (bonus adverse)';}
+  else if(S.flotteMap[cell]==='ship'){hitType='TOUCHÉ 💥';}
+  showToast('🎯 '+(SESSION.oppName||'L\'adversaire')+' tire en '+cell+' → '+hitType);
+  vib([40,30,80]);
+}
+
+// Toast simple
+function showToast(msg){
+  var t=document.getElementById('toast');
+  if(!t){t=document.createElement('div');t.id='toast';document.body.appendChild(t);
+    t.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:500;background:linear-gradient(135deg,#ff3fa4,#b44fff);color:#fff;font-family:Nunito,sans-serif;font-weight:800;font-size:13px;padding:12px 18px;border-radius:30px;box-shadow:0 0 18px rgba(255,63,164,0.55);max-width:90%;text-align:center;transition:opacity .3s;';}
+  t.textContent=msg;t.style.opacity='1';
+  clearTimeout(t._timer);t._timer=setTimeout(function(){t.style.opacity='0';},3500);
+}
+
+
+/* ═══════════════ DONNÉES DE JEU (séparées de l'affichage) ═══════════════ */
+var SHIPS=[
+  {id:'pa',name:'Porte-avions',size:5},
+  {id:'cr',name:'Croiseur',size:4},
+  {id:'de',name:'Destroyer',size:3},
+  {id:'sm',name:'Sous-marin',size:3},
+  {id:'to',name:'Torpilleur',size:2},
+  {id:'gp',name:'G-POINT 🔥',size:1,special:true}
+];
+var TOTAL=18; // 5+4+3+3+2+1
+var ROWS=['A','B','C','D','E','F','G','H','I','J'];
+var COLS=['1','2','3','4','5','6','7','8','9','10'];
+
+var DEFIS_NORMAUX=[
+  'Boire une gorgée 🥂','Un compliment sincère 💬','Un câlin de 20s 🤗',
+  'Masser les épaules ✋','Chuchoter un mot doux 🌸','Choisir la musique 🎵'
+];
+var DEFIS_HOT=[
+  'Boire une coupe de champagne 🥂','Bisous dans le cou 💋','Mordre la fesse 😈',
+  'Massage 2 minutes ✋','Chuchoter un fantasme à l\'oreille 🌸','Enlever un vêtement 🎭',
+  'Câlin de 30 secondes 🤗','Danser collé-serré 💃','Raconter un fantasme 🔥',
+  'Choisir la prochaine action toi-même 😏'
+];
+
+var HELP_TEXTS={
+  flotte:{t:'🚢 Placer ta flotte',b:'Choisis un bateau dans la liste, puis la <strong>direction</strong> (horizontal/vertical). Touche la 1ère case : le bateau se pose entièrement. Pour le retirer, touche-le à nouveau.<br/><br/>Le <strong>G-POINT</strong> 🔥 est une case unique : s\'il est touché, l\'adversaire débloque la mitraillette !'},
+  tirs:{t:'🎯 Tes tirs',b:'Note ici tes coups sur la mer adverse. <strong>1 tap = touché ✕</strong>, 2 taps = manqué ·, 3 taps = effacer.<br/><br/>La <strong>barre de progression</strong> monte à chaque touché. À 18 touchés, victoire automatique 🏆 !'},
+  defis:{t:'🎲 Les défis',b:'Tu définis tes défis, puis tu les caches sur ta flotte (mode « Marquer défis »). Quand l\'adversaire touche une case défi, <strong>il crie « Défi ! »</strong> et c\'est <em>lui</em> qui remporte le bonus.'},
+  bonus:{t:'⚡ Bonus',b:'Ce panneau montre les pouvoirs débloqués pendant la partie.<br/><br/><strong>🔫 Mitraillette :</strong> obtenue quand tu touches le G-POINT adverse → 3 tirs d\'affilée !'},
+  turn:{t:'🔄 Tour de jeu',b:'L\'indicateur en haut montre à qui c\'est le tour. <strong>Touche-le pour basculer</strong> entre « À toi » et « Adversaire » après chaque coup. (Vous gérez les tours vous-mêmes en annonçant vos coups à voix haute.)'}
+};
+
+/* ═══════════════ ÉTAT ═══════════════ */
+var SESSION={playerName:'',gameCode:'',isHost:false,defiCount:3,hotUnlocked:false,oppName:''};
+
+var S={
+  mode:'place',direction:'h',selectedShip:SHIPS[0].id,
+  shipCells:{},flotteMap:{},defiPlaced:[],
+  tirMap:{},defis:[],
+  hitCount:0,missCount:0,defiTriggered:0,
+  lastTirKey:null,myTurn:true,
+  mitrailletteActive:false,mitCount:0,gpointHit:false
+};
+function resetShipCells(){SHIPS.forEach(function(s){S.shipCells[s.id]=[];});}
+resetShipCells();
+
+function key(ci,ri){return ROWS[ri]+COLS[ci];}
+
+/* ═══════════════ AUDIO ═══════════════ */
+var audioCtx=null;
+function getAC(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
+function tone(type,f1,f2,dur,vol,delay){try{var a=getAC();var o=a.createOscillator();var g=a.createGain();o.connect(g);g.connect(a.destination);o.type=type;var t=a.currentTime+(delay||0);o.frequency.setValueAtTime(f1,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+dur);g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(0.001,t+dur);o.start(t);o.stop(t+dur);}catch(e){}}
+function playHit(){tone('sawtooth',200,60,0.25,0.28);}
+function playMiss(){tone('sine',440,300,0.15,0.1);}
+function playDefi(){[523,659,784].forEach(function(f,i){tone('triangle',f,null,0.12,0.14,i*0.1);});}
+function playMitr(){[0,0.08,0.16].forEach(function(t){tone('square',800,null,0.07,0.15,t);});}
+function vib(p){if(navigator.vibrate)try{navigator.vibrate(p);}catch(e){}}
+
+/* ═══════════════ LOBBY ═══════════════ */
+function genCode(){var c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789',s='';for(var i=0;i<6;i++)s+=c[Math.floor(Math.random()*c.length)];return s;}
+(function initURL(){var p=new URLSearchParams(window.location.search);var c=p.get('game');if(c)document.getElementById('inp-code-join').value=c.toUpperCase();})();
+
+// Défi count selector
+document.getElementById('defi-count-row').onclick=function(e){
+  var btn=e.target.closest('.dc-btn');if(!btn)return;
+  var count=+btn.dataset.count;
+  if(count===10&&!SESSION.hotUnlocked){openAdModal();return;}
+  document.querySelectorAll('.dc-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  SESSION.defiCount=count;
+};
+
+function startGame(){
+  // Init defis arrays based on count
+  SESSION.defiCount=SESSION.defiCount||3;
+  S.defis=[];S.defiPlaced=[];
+  for(var i=0;i<SESSION.defiCount;i++){S.defis.push('');S.defiPlaced.push(null);}
+  document.getElementById('lobby').classList.add('hidden');
+  document.getElementById('hdr-player').textContent='👤 '+SESSION.playerName+(SESSION.gameCode?' · #'+SESSION.gameCode:'');
+  // Synchronise les boutons de l'onglet Défis avec le compte choisi
+  if(SESSION.hotUnlocked){document.querySelectorAll('.dc-btn.hot').forEach(function(b){b.classList.remove('locked');var i=b.querySelector('.lock-ico');if(i)i.textContent='✓';});}
+  syncDefiCountButtons(SESSION.defiCount);
+  renderAll();
+}
+
+document.getElementById('btn-create').onclick=function(){
+  var n=document.getElementById('inp-name-create').value.trim();
+  if(!n){alert('Entre ton prénom !');return;}
+  SESSION.playerName=n;SESSION.gameCode=genCode();SESSION.isHost=true;
+  document.getElementById('lobby-create-section').style.display='none';
+  document.getElementById('lobby-share-section').style.display='block';
+  document.getElementById('share-code-display').textContent=SESSION.gameCode;
+  document.getElementById('lobby-player-badge').textContent='👤 '+n+' (Joueur 1)';
+  // Crée la partie en ligne (J1 attend J2)
+  if(fbReady){fbCreateGame(SESSION.gameCode,n,function(ok){});}
+};
+document.getElementById('btn-copy-code').onclick=function(){
+  var url=window.location.href.split('?')[0]+'?game='+SESSION.gameCode;
+  try{if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(url);}else{var t=document.createElement('textarea');t.value=url;document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);}}catch(e){}
+  this.textContent='✅ Lien copié !';var self=this;setTimeout(function(){self.textContent='📋 Copier le lien';},2000);
+};
+document.getElementById('btn-start-game').onclick=function(){
+  startGame();
+  // Si online et pas encore d'adversaire, affiche l'écran d'attente
+  if(fbReady&&!SESSION.oppName){
+    document.getElementById('wait-code').textContent=SESSION.gameCode;
+    document.getElementById('waiting').classList.add('open');
+    // J1 commence
+    gameRef&&gameRef.child('turn').set('p1');
+  }
+};
+document.getElementById('wait-copy').onclick=function(){
+  var url=window.location.href.split('?')[0]+'?game='+SESSION.gameCode;
+  try{navigator.clipboard.writeText(url);}catch(e){}
+  this.textContent='✅ Copié !';var s=this;setTimeout(function(){s.textContent='📋 Copier le lien';},2000);
+};
+document.getElementById('btn-join').onclick=function(){
+  var code=document.getElementById('inp-code-join').value.trim().toUpperCase();
+  var name=document.getElementById('inp-name-join').value.trim();
+  if(!name){alert('Entre ton prénom !');return;}
+  SESSION.playerName=name;SESSION.gameCode=code;SESSION.isHost=false;
+  if(fbReady&&code){
+    fbJoinGame(code,name,function(ok,err){
+      if(!ok&&err==='notfound'){alert('Aucune partie trouvée avec ce code. Vérifie le code !');return;}
+      startGame();
+    });
+  } else {
+    // mode hors-ligne (pas de code) : fiche autonome
+    startGame();
+  }
+};
+
+/* ═══════════════ AD MODAL (mock, prêt pour vraie pub) ═══════════════ */
+var adState={current:0,timer:null};
+function openAdModal(){
+  adState.current=0;
+  document.getElementById('ad-dot-1').classList.remove('done');
+  document.getElementById('ad-dot-2').classList.remove('done');
+  document.getElementById('ad-modal').classList.add('open');
+  runAd();
+}
+function runAd(){
+  adState.current++;
+  document.getElementById('ad-content').textContent='Pub '+adState.current+'/2';
+  var sec=5; // mock 5s au lieu de 30 pour le test — remplacer par vraie pub
+  document.getElementById('ad-countdown').textContent=sec+'s…';
+  clearInterval(adState.timer);
+  adState.timer=setInterval(function(){
+    sec--;
+    document.getElementById('ad-countdown').textContent=sec+'s…';
+    if(sec<=0){
+      clearInterval(adState.timer);
+      document.getElementById('ad-dot-'+adState.current).classList.add('done');
+      if(adState.current<2){runAd();}
+      else{unlockHot();}
+    }
+  },1000);
+}
+function unlockHot(){
+  SESSION.hotUnlocked=true;
+  document.getElementById('ad-modal').classList.remove('open');
+  // Déverrouille TOUS les boutons HOT (lobby + jeu)
+  document.querySelectorAll('.dc-btn.hot').forEach(function(hotBtn){
+    hotBtn.classList.remove('locked');
+    var ico=hotBtn.querySelector('.lock-ico');if(ico)ico.textContent='✓';
+  });
+  playDefi();
+  // Applique 10 défis : si le jeu est lancé, en live ; sinon juste le lobby
+  if(document.getElementById('lobby').classList.contains('hidden')){
+    setDefiCount(10);
+  } else {
+    document.querySelectorAll('#defi-count-row .dc-btn').forEach(function(b){b.classList.toggle('active',+b.dataset.count===10);});
+    SESSION.defiCount=10;
+  }
+  alert('🔥 Mode HOT débloqué ! 10 défis coquins disponibles.');
+}
+document.getElementById('ad-skip').onclick=function(){
+  clearInterval(adState.timer);
+  document.getElementById('ad-modal').classList.remove('open');
+};
+
+/* ═══════════════ GRILLES ═══════════════ */
+function buildGrid(id,handler){
+  var g=document.getElementById(id);g.innerHTML='';
+  g.appendChild(document.createElement('div')).className='grid-label';
+  COLS.forEach(function(c){var l=document.createElement('div');l.className='grid-label';l.textContent=c;g.appendChild(l);});
+  ROWS.forEach(function(r,ri){
+    var rl=document.createElement('div');rl.className='grid-label';rl.textContent=r;g.appendChild(rl);
+    COLS.forEach(function(c,ci){var cell=document.createElement('div');cell.className='grid-cell';cell.dataset.r=ri;cell.dataset.c=ci;g.appendChild(cell);});
+  });
+  g.addEventListener('click',handler);
+  if(id==='grid-flotte')g.addEventListener('mouseover',previewShip);
+}
+function addRipple(cell,color){var r=document.createElement('div');r.className='ripple-el';r.style.background=color;cell.appendChild(r);setTimeout(function(){r.remove();},420);}
+
+/* ── PLACEMENT ── */
+function getShipCells(sr,sc,size,dir){var cells=[];for(var i=0;i<size;i++){var r=dir==='h'?sr:sr+i;var c=dir==='h'?sc+i:sc;if(r>9||c>9)return null;cells.push(key(c,r));}return cells;}
+function clearPreview(){document.querySelectorAll('#grid-flotte .grid-cell').forEach(function(c){c.classList.remove('preview-ok','preview-bad');});}
+function previewShip(e){
+  if(S.mode!=='place')return;
+  var cell=e.target.closest('.grid-cell');if(!cell)return;
+  clearPreview();
+  var ship=SHIPS.find(function(s){return s.id===S.selectedShip;});
+  if(!ship||S.shipCells[ship.id].length>=ship.size)return;
+  var cells=getShipCells(+cell.dataset.r,+cell.dataset.c,ship.size,S.direction);
+  var ok=cells&&cells.every(function(k){return!S.flotteMap[k];});
+  document.querySelectorAll('#grid-flotte .grid-cell').forEach(function(c){
+    var k=key(+c.dataset.c,+c.dataset.r);
+    if(cells&&cells.indexOf(k)>=0)c.classList.add(ok?'preview-ok':'preview-bad');
+  });
+}
+function handleFlotte(e){
+  var cell=e.target.closest('.grid-cell');if(!cell)return;
+  var ri=+cell.dataset.r,ci=+cell.dataset.c,k=key(ci,ri);
+  if(S.mode==='defi'){
+    var isShipCell=S.flotteMap[k]==='ship'||S.flotteMap[k]==='gpoint'||S.flotteMap[k]==='defi';
+    if(!isShipCell)return;
+    if(S.defiPlaced.indexOf(k)>=0){
+      var ix=S.defiPlaced.indexOf(k);S.defiPlaced[ix]=null;
+      S.flotteMap[k]=(k===findGpointKey())?'gpoint':'ship';
+      renderFlotte();renderDefiStatus();return;
+    }
+    var slot=S.defiPlaced.indexOf(null);if(slot===-1){showHint('Tous tes défis sont déjà placés !');return;}
+    S.defiPlaced[slot]=k;S.flotteMap[k]='defi';
+    addRipple(cell,'rgba(255,140,0,0.4)');renderFlotte();renderDefiStatus();return;
+  }
+  var ship=SHIPS.find(function(s){return s.id===S.selectedShip;});if(!ship)return;
+  if(S.shipCells[ship.id].indexOf(k)>=0){
+    S.shipCells[ship.id].forEach(function(sk){var di=S.defiPlaced.indexOf(sk);if(di>=0)S.defiPlaced[di]=null;delete S.flotteMap[sk];});
+    S.shipCells[ship.id]=[];clearPreview();renderFlotte();renderShipsLegend();renderDefiStatus();return;
+  }
+  if(S.shipCells[ship.id].length>=ship.size)return;
+  var cells=getShipCells(ri,ci,ship.size,S.direction);
+  if(!cells){showHint('Pas assez de place dans cette direction !');return;}
+  if(cells.some(function(ck){return S.flotteMap[ck];})){showHint('Case occupée ! Autre emplacement.');return;}
+  var isGP=ship.id==='gp';
+  cells.forEach(function(ck){S.flotteMap[ck]=isGP?'gpoint':'ship';S.shipCells[ship.id].push(ck);});
+  addRipple(cell,isGP?'rgba(255,63,164,0.4)':'rgba(34,214,106,0.4)');clearPreview();
+  var idx=SHIPS.findIndex(function(s){return s.id===S.selectedShip;});
+  var next=SHIPS.slice(idx+1).find(function(s){return S.shipCells[s.id].length<s.size;});
+  if(next)S.selectedShip=next.id;
+  renderFlotte();renderShipsLegend();renderDefiStatus();
+}
+function findGpointKey(){return (S.shipCells['gp']&&S.shipCells['gp'][0])||null;}
+function showHint(msg){var h=document.getElementById('place-hint');h.innerHTML='<strong style="color:var(--hit)">⚠ '+msg+'</strong>';setTimeout(function(){h.innerHTML='Sélectionne un bateau, puis touche la <strong>1ère case</strong> pour le placer.';},2500);}
+
+/* ── TIRS ── */
+function handleTirs(e){
+  var cell=e.target.closest('.grid-cell');if(!cell)return;
+  var ri=+cell.dataset.r,ci=+cell.dataset.c,k=key(ci,ri);
+  var cur=S.tirMap[k];
+  if(!cur){
+    S.tirMap[k]='hit';S.lastTirKey=k;addRipple(cell,'rgba(255,59,59,0.5)');playHit();vib([30,20,60]);
+    fbSendShot(k,'hit');
+    if(S.mitrailletteActive){useMitr();}
+    else if(fbReady&&gameRef){fbPassTurn();} // fin du tour → passe à l'adversaire
+  }
+  else if(cur==='hit'){S.tirMap[k]='miss';addRipple(cell,'rgba(59,142,255,0.4)');playMiss();vib([15]);if(S.mitrailletteActive)useMitr();}
+  else if(cur==='miss'){delete S.tirMap[k];}
+  renderTirs();
+}
+document.getElementById('btn-defi-btn').onclick=function(){
+  if(!S.lastTirKey){alert('Touche d\'abord une case !');return;}
+  var filled=S.defis.map(function(d,i){return{d:d,i:i};}).filter(function(x){return x.d.trim();});
+  var txt='(L\'adversaire annonce son défi)',num='?';
+  if(filled.length){var p=filled[Math.floor(Math.random()*filled.length)];txt=p.d;num=p.i+1;}
+  document.getElementById('dm-who').textContent='🏅 '+SESSION.playerName+' remporte ce bonus !';
+  document.getElementById('dm-coord').textContent='Case '+S.lastTirKey+' · Défi #'+num;
+  document.getElementById('dm-text').textContent=txt;
+  document.getElementById('defi-modal').classList.add('open');
+  S.defiTriggered++;playDefi();vib([60,30,120]);
+};
+document.getElementById('btn-gpoint').onclick=function(){
+  activateMitr();
+  document.getElementById('dm-who').textContent='🔫 '+SESSION.playerName+' a la Mitraillette !';
+  document.getElementById('dm-coord').textContent='Le G-POINT a été touché 💥';
+  document.getElementById('dm-text').textContent='3 tirs bonus d\'affilée ! Annonce tes coordonnées vite !';
+  document.getElementById('defi-modal').classList.add('open');
+};
+
+/* ── MITRAILLETTE ── */
+function activateMitr(){S.mitrailletteActive=true;S.mitCount=3;S.gpointHit=true;var b=document.getElementById('mitraillette-banner');b.classList.add('show');document.getElementById('mit-count').textContent='3';playMitr();vib([50,20,50,20,50]);renderBonus();}
+function useMitr(){S.mitCount--;document.getElementById('mit-count').textContent=S.mitCount;if(S.mitCount<=0){S.mitrailletteActive=false;setTimeout(function(){document.getElementById('mitraillette-banner').classList.remove('show');},1200);renderBonus();}}
+
+/* ═══════════════ RENDU (affichage) ═══════════════ */
+function renderFlotte(){
+  document.querySelectorAll('#grid-flotte .grid-cell').forEach(function(cell){
+    var k=key(+cell.dataset.c,+cell.dataset.r);cell.className='grid-cell';cell.innerHTML='';
+    if(S.flotteMap[k]==='defi'){cell.classList.add('defi-cell');var idx=S.defiPlaced.indexOf(k);if(idx>=0){var n=document.createElement('span');n.className='defi-num';n.textContent=idx+1;cell.appendChild(n);}}
+    else if(S.flotteMap[k]==='gpoint'){cell.classList.add('gpoint-cell');cell.textContent='🔥';}
+    else if(S.flotteMap[k]==='ship'){cell.classList.add('ship-cell');}
+  });
+}
+function renderShipsLegend(){
+  var leg=document.getElementById('ships-legend');leg.innerHTML='';
+  SHIPS.forEach(function(s){
+    var done=S.shipCells[s.id].length>=s.size,sel=S.selectedShip===s.id&&S.mode==='place',isGP=s.id==='gp';
+    var ch=document.createElement('div');ch.className='ship-chip'+(sel?' selected':'')+(done?' done':'')+(isGP?' gpoint-chip':'');
+    ch.innerHTML='<span class="pip"></span><span>'+s.name+(s.size>1?' ('+s.size+')':'')+'</span>';
+    if(!done)ch.onclick=function(){S.selectedShip=s.id;renderShipsLegend();};
+    leg.appendChild(ch);
+  });
+}
+function renderTirs(){
+  document.querySelectorAll('#grid-tirs .grid-cell').forEach(function(cell){
+    var k=key(+cell.dataset.c,+cell.dataset.r);cell.className='grid-cell';cell.textContent='';
+    if(S.tirMap[k]==='hit'){cell.classList.add('hit-cell');cell.textContent='✕';}
+    else if(S.tirMap[k]==='miss'){cell.classList.add('miss-cell');cell.textContent='·';}
+  });
+  var hit=0,miss=0;Object.keys(S.tirMap).forEach(function(k){if(S.tirMap[k]==='hit')hit++;else miss++;});
+  S.hitCount=hit;S.missCount=miss;
+  document.getElementById('sc-hit').textContent=hit;
+  document.getElementById('sc-miss').textContent=miss;
+  document.getElementById('sc-rem').textContent=Math.max(0,TOTAL-hit);
+  var pct=Math.min(100,Math.round(hit/TOTAL*100));
+  document.getElementById('progress-fill').style.width=pct+'%';
+  document.getElementById('prog-label').textContent=hit+' / '+TOTAL;
+  if(hit>=TOTAL)setTimeout(showVictory,500);
+}
+function renderBonus(){
+  var list=document.getElementById('bonus-list');list.innerHTML='';
+  var bonuses=[{ico:'🔫',txt:'Mitraillette (3 tirs)',active:S.mitrailletteActive,state:S.mitrailletteActive?(S.mitCount+' restants'):(S.gpointHit?'Utilisée':'Verrouillée')}];
+  var anyActive=false;
+  bonuses.forEach(function(b){
+    if(b.active)anyActive=true;
+    var item=document.createElement('div');item.className='bonus-item'+(b.active?' active':'');
+    item.innerHTML='<span class="bico">'+b.ico+'</span><span class="btxt">'+b.txt+'</span><span class="bstate">'+b.state+'</span>';
+    list.appendChild(item);
+  });
+  if(!anyActive&&!S.gpointHit){list.innerHTML='<div class="bonus-empty">Aucun bonus actif. Touche un G-POINT 🔥 pour la mitraillette !</div>';}
+}
+function renderDefiSuggestions(){
+  var c=document.getElementById('defi-suggestions');c.innerHTML='';
+  var pool=SESSION.defiCount===10?DEFIS_HOT:DEFIS_NORMAUX;
+  pool.forEach(function(d){
+    var chip=document.createElement('div');chip.className='defi-sug-chip';chip.textContent=d;
+    chip.onclick=function(){var idx=S.defis.findIndex(function(x){return!x.trim();});if(idx===-1){alert('Tous tes champs sont remplis !');return;}S.defis[idx]=d;renderDefiInputs();renderDefiStatus();};
+    c.appendChild(chip);
+  });
+}
+function renderDefiInputs(){
+  document.getElementById('defi-perso-title').textContent='Tes '+SESSION.defiCount+' défis personnalisés';
+  var c=document.getElementById('defi-inputs');c.innerHTML='';
+  S.defis.forEach(function(d,i){
+    var row=document.createElement('div');row.className='defi-input-row';
+    var badge=document.createElement('div');badge.className='defi-badge';badge.textContent=i+1;
+    var inp=document.createElement('input');inp.type='text';inp.placeholder='Défi '+(i+1)+'…';inp.value=d;
+    inp.oninput=function(){S.defis[i]=this.value;renderDefiStatus();};
+    row.appendChild(badge);row.appendChild(inp);c.appendChild(row);
+  });
+}
+function renderDefiStatus(){
+  var c=document.getElementById('defi-status');c.innerHTML='';
+  S.defis.forEach(function(d,i){
+    var coord=S.defiPlaced[i];
+    var item=document.createElement('div');item.className='defi-status-item'+(coord?' placed':'');
+    item.innerHTML='<span class="coord">'+(coord||'—')+'</span><span class="desc">'+(d.trim()||'(non défini)')+'</span>';
+    c.appendChild(item);
+  });
+}
+function renderTurn(){
+  var bar=document.getElementById('turn-bar'),txt=document.getElementById('turn-text');
+  if(S.myTurn){bar.className='turn-bar my-turn';txt.textContent='À toi de jouer !';}
+  else{bar.className='turn-bar their-turn';txt.textContent='Tour de l\'adversaire';}
+}
+function renderAll(){renderFlotte();renderTirs();renderShipsLegend();renderDefiSuggestions();renderDefiInputs();renderDefiStatus();renderBonus();renderTurn();}
+
+/* Change le nombre de défis en cours de jeu, en préservant le texte déjà saisi */
+function setDefiCount(count){
+  SESSION.defiCount=count;
+  var oldDefis=S.defis.slice();
+  var oldPlaced=S.defiPlaced.slice();
+  S.defis=[];S.defiPlaced=[];
+  for(var i=0;i<count;i++){
+    S.defis.push(oldDefis[i]||'');
+    S.defiPlaced.push(oldPlaced[i]||null);
+  }
+  // Si on réduit, libère les cases défi orphelines sur la flotte
+  for(var j=count;j<oldPlaced.length;j++){
+    var k=oldPlaced[j];
+    if(k&&S.flotteMap[k]==='defi'){S.flotteMap[k]=(k===findGpointKey())?'gpoint':'ship';}
+  }
+  // Met à jour les boutons actifs (lobby + jeu)
+  syncDefiCountButtons(count);
+  renderDefiSuggestions();renderDefiInputs();renderDefiStatus();renderFlotte();
+}
+
+function syncDefiCountButtons(count){
+  ['defi-count-row','game-defi-count'].forEach(function(rowId){
+    var row=document.getElementById(rowId);if(!row)return;
+    row.querySelectorAll('.dc-btn').forEach(function(b){
+      b.classList.toggle('active',+b.dataset.count===count);
+    });
+  });
+}
+
+// Wire in-game selector
+document.getElementById('game-defi-count').onclick=function(e){
+  var btn=e.target.closest('.dc-btn');if(!btn)return;
+  var count=+btn.dataset.count;
+  if(count===10&&!SESSION.hotUnlocked){openAdModal();return;}
+  setDefiCount(count);
+};
+
+/* ═══════════════ CONTRÔLES ═══════════════ */
+document.getElementById('turn-bar').onclick=function(){S.myTurn=!S.myTurn;renderTurn();vib([20]);};
+document.getElementById('dir-h').onclick=function(){S.direction='h';this.classList.add('active');document.getElementById('dir-v').classList.remove('active');};
+document.getElementById('dir-v').onclick=function(){S.direction='v';this.classList.add('active');document.getElementById('dir-h').classList.remove('active');};
+document.getElementById('mode-place').onclick=function(){S.mode='place';this.className='mode-btn active-place';document.getElementById('mode-defi').className='mode-btn';renderShipsLegend();};
+document.getElementById('mode-defi').onclick=function(){S.mode='defi';this.className='mode-btn active-defi';document.getElementById('mode-place').className='mode-btn';};
+document.getElementById('nav').onclick=function(e){var b=e.target.closest('button[data-tab]');if(!b)return;document.querySelectorAll('#nav button').forEach(function(x){x.classList.remove('active');});document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});b.classList.add('active');document.getElementById(b.dataset.tab).classList.add('active');};
+document.getElementById('btn-clear-flotte').onclick=function(){if(!confirm('Effacer toute la flotte ?'))return;S.flotteMap={};S.defiPlaced=S.defiPlaced.map(function(){return null;});resetShipCells();clearPreview();renderFlotte();renderShipsLegend();renderDefiStatus();};
+document.getElementById('btn-clear-tirs').onclick=function(){if(!confirm('Effacer tous les tirs ?'))return;S.tirMap={};S.hitCount=0;S.missCount=0;S.lastTirKey=null;renderTirs();};
+document.getElementById('dm-close').onclick=function(){document.getElementById('defi-modal').classList.remove('open');};
+
+// Help buttons (event delegation)
+document.body.addEventListener('click',function(e){
+  var hb=e.target.closest('.help-btn');if(!hb)return;
+  var h=HELP_TEXTS[hb.dataset.help];if(!h)return;
+  document.getElementById('help-title').textContent=h.t;
+  document.getElementById('help-body').innerHTML=h.b;
+  document.getElementById('help-modal').classList.add('open');
+});
+document.getElementById('help-close').onclick=function(){document.getElementById('help-modal').classList.remove('open');};
+
+/* ═══════════════ CONFETTI ═══════════════ */
+function launchConfetti(){
+  var canvas=document.getElementById('confetti-canvas');canvas.width=window.innerWidth;canvas.height=window.innerHeight;
+  var ctx=canvas.getContext('2d');var colors=['#ff3fa4','#b44fff','#00f5c8','#ff8c00','#ff3b3b','#3b8eff','#fff'];var pp=[];
+  for(var i=0;i<130;i++)pp.push({x:Math.random()*canvas.width,y:-20,vx:(Math.random()-.5)*5,vy:Math.random()*4+2,color:colors[i%colors.length],size:Math.random()*9+4,angle:Math.random()*360,spin:Math.random()*6-3,shape:Math.random()>.5?'r':'c'});
+  var f=0;(function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);pp.forEach(function(p){ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle*Math.PI/180);ctx.fillStyle=p.color;ctx.globalAlpha=Math.max(0,1-f/80);if(p.shape==='r')ctx.fillRect(-p.size/2,-p.size/4,p.size,p.size/2);else{ctx.beginPath();ctx.arc(0,0,p.size/2,0,Math.PI*2);ctx.fill();}ctx.restore();p.x+=p.vx;p.y+=p.vy;p.vy+=0.1;p.angle+=p.spin;});f++;if(f<90)requestAnimationFrame(draw);else ctx.clearRect(0,0,canvas.width,canvas.height);})();
+}
+
+/* ═══════════════ VICTOIRE ═══════════════ */
+function showVictory(){
+  if(document.getElementById('victory').classList.contains('open'))return;
+  document.getElementById('v-hit').textContent=S.hitCount;
+  document.getElementById('v-miss').textContent=S.missCount;
+  document.getElementById('v-defi').textContent=S.defiTriggered;
+  document.getElementById('v-sub').textContent=(SESSION.playerName||'Tu')+' as coulé toute la flotte ! 🎉';
+  var fd=S.defis.filter(function(d){return d.trim();});
+  document.getElementById('v-defis').innerHTML=fd.length?'<div class="v-defis-label">Défis de la partie</div>'+fd.map(function(d){return'<div class="v-defi-item">🎲 '+d+'</div>';}).join(''):'';
+  document.getElementById('victory').classList.add('open');launchConfetti();playDefi();vib([100,50,100,50,200]);
+}
+document.getElementById('v-replay').onclick=function(){
+  document.getElementById('victory').classList.remove('open');
+  S.tirMap={};S.flotteMap={};S.hitCount=0;S.missCount=0;S.defiTriggered=0;S.lastTirKey=null;
+  S.mitrailletteActive=false;S.mitCount=0;S.gpointHit=false;
+  S.defis=S.defis.map(function(){return'';});S.defiPlaced=S.defiPlaced.map(function(){return null;});
+  resetShipCells();S.mode='place';S.selectedShip=SHIPS[0].id;S.direction='h';S.myTurn=true;
+  document.getElementById('mitraillette-banner').classList.remove('show');
+  document.getElementById('dir-h').classList.add('active');document.getElementById('dir-v').classList.remove('active');
+  document.getElementById('mode-place').className='mode-btn active-place';document.getElementById('mode-defi').className='mode-btn';
+  document.querySelectorAll('#nav button').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});
+  document.querySelector('#nav button[data-tab="tab-flotte"]').classList.add('active');
+  document.getElementById('tab-flotte').classList.add('active');
+  renderAll();
+  // retour au lobby pour reconfigurer
+  document.getElementById('lobby').classList.remove('hidden');
+  document.getElementById('lobby-create-section').style.display='block';
+  document.getElementById('lobby-share-section').style.display='none';
+};
+
+/* ═══════════════ INIT ═══════════════ */
+buildGrid('grid-flotte',handleFlotte);
+buildGrid('grid-tirs',handleTirs);
+renderAll();
+
+})();
+</script>
+</body>
+</html>
